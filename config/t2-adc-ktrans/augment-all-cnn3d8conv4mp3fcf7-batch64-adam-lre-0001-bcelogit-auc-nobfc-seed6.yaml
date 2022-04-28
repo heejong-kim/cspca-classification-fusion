@@ -1,0 +1,91 @@
+
+# use a fixed random seed to guarantee that when you run the code twice you will get the same outcome
+manual_seed: 6
+
+trainer:
+  # path to the checkpoint directory
+  checkpoint_dir: "/home/heejong/projects/biopsy-prediction-result-cnn3d8conv4mp3fcf4-earlystopping-eval/augment2-t2adcktrans-f7-3channel-batch64-adam-lre-0001-bcelogit-auc-nobfc-seed6.yaml"
+  # path to last_checkpoint.pytorch; if provided the training will be resumed from that checkpoint
+  resume: null
+  # path to the best_checkpoint.pytorch; to be used for fine-tuning the model with additional ground truth
+  # make sure to decrease the learning rate in the optimizer config accordingly
+  pre_trained: null
+  # how many iterations between validations
+  validate_after_iters: 20 # 1 epoch: trainer.loaders['train'].dataset.__len__()
+  # how many iterations between tensorboard logging
+  log_after_iters: 20 # originally 50
+  # max number of epochs
+  max_num_epochs: 300 # 300
+  # max number of iterations
+  max_num_iterations: 10000000000
+  # model with higher eval score is considered better = [loss = eval]
+  eval_score_higher_is_better: True
+  #  skip_train_validation: True
+  # early stopping
+  early_stopping: True
+  # early stopping criterion (loss or eval)
+  early_stopping_criterion: 'eval'
+  # visualize the images (image synthesis)
+  visualize_image: False
+  # additional evaluation (precision / recall for prediction task)
+  additional_eval: False
+
+
+
+# optimizer configuration
+optimizer:
+  # initial learning rate [0.0005 0.0001 0.001 0.01]
+  learning_rate: 0.0001
+  # weight decay (l2 regularizer)
+  weight_decay: 0
+
+
+# model configuration
+model:
+  # model class
+  name: CNN3D_3CHANNEL_8CONV4MP_3FC_F7
+loaders:
+  csvfname: '/home/heejong/data/prostatex/demo-h5-sitk/prostateX-demo-csPCa-prediction-multimodal-sitk-newidx.csv'
+  dataset: prostatex_dataloader_cnn3d
+  num_workers: 80
+  batch_size: 64
+  train:
+    channels: [ 't2', 'adcregistered', 'ktrans' ]
+    weighted_sampler: True
+    znorm: False
+    minmax: True
+    partialdata: False # or number btw [0, 1]
+    target: 'ClinSig'
+    augment_lr_flip: True
+    augment_affine: True
+    augment_intensity: True
+    augment_translate: True
+    patchsize: [50, 46, 41]
+  val:
+    channels: [ 't2', 'adcregistered', 'ktrans' ]
+    weighted_sampler: False
+    znorm: False
+    minmax: True
+    partialdata: False # or number btw [0, 1]
+    target: 'ClinSig'
+    augment_lr_flip: False
+    augment_affine: False
+    augment_intensity: False
+    augment_translate: False
+    patchsize: [50, 46, 41]
+
+
+loss:
+#  name: BCELoss
+#  class_weight: False
+  name: BCEWithLogitsLoss
+  # WeightedCrossEntropyLoss
+  class_weight: False
+
+evaluation:
+  name: AUC
+  # AUC F1
+
+
+
+#srun -p sablab-highprio -t 24:00:00 --gres=gpu:1 -w sablab-gpu-06 --cpus-per-task=9 --mem=22G
