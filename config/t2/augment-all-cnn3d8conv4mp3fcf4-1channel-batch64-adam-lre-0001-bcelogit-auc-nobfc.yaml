@@ -45,7 +45,7 @@ model:
   # model class
   name: CNN3D_1CHANNEL_8CONV4MP_3FC_F4
 loaders:
-  csvfname: '/share/sablab/nfs04/data/PROSTATEx/preprocessed/PROSTATEx-new/prostateX-demo-csPCa-prediction-multimodal-sitk-newidx-scratch.csv'
+  csvfname: '/home/heejong/data/prostatex/demo-h5-sitk/prostateX-demo-csPCa-prediction-multimodal-sitk-newidx.csv'
   dataset: prostatex_dataloader_cnn3d
   num_workers: 40
   batch_size: 64
