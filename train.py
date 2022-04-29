@@ -21,7 +21,6 @@ def main(conf_fname):
         random.seed(manual_seed)
         os.environ['PYTHONHASHSEED'] = str(manual_seed)
         torch.backends.cudnn.deterministic = True # this might make your code slow
-        torch.use_deterministic_algorithms(True)
 
 
     device_str = config.get('device', None)
