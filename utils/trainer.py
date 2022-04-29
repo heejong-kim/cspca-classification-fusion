@@ -54,7 +54,7 @@ def get_loader(loader_config):
 
 def get_loss(loss_config):
     def _loader_class(class_name):
-        modules = ['losses']
+        modules = ['utils.losses']
         for module in modules:
             m = importlib.import_module(module)
             clazz = getattr(m, class_name)
