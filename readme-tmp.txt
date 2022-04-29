@@ -8,24 +8,33 @@ change checkpoint dir : checkpoint_dir
 
 
 
-from csv import reader
 import yaml
 
+
 all_yaml = glob.glob(os.path.join(dirname, 'config/*/*.yaml'))
-with open(names, 'r+') as f:
-    doc = yaml.load(f)
-    orig_dir = doc['trainer']['checkpoint_dir']
-    doc['trainer']['checkpoint_dir'] = orig_dir.replace('/home/heejong/projects/biopsy-prediction-result-cnn3d8conv4mp3fcf4-earlystopping-eval/','./checkpoint/')
-    yaml.dump(doc, f)
+
+for names in all_yaml:
+    f = open(names, 'r')
+    newf = f.read().replace('/home/heejong/projects/biopsy-prediction-result-cnn3d8conv4mp3fcf4-earlystopping-eval/augment2', './checkpoint/augment')
+    f.close()
+
+    with open(names, 'w') as ff:
+        ff.write(newf)
+
+## for the server change the filename
+''
+for names in all_yaml:
+    f = open(names, 'r')
+    newf = f.read().replace('/home/heejong/data/prostatex/demo-h5-sitk/prostateX-demo-csPCa-prediction-multimodal-sitk-newidx.csv',
+                '/share/sablab/nfs04/data/PROSTATEx/preprocessed/PROSTATEx-new/prostateX-demo-csPCa-prediction-multimodal-sitk-newidx-scratch.csv')
+    f.close()
+
+    with open(names, 'w') as ff:
+        ff.write(newf)
 
 
+#  -> sablab-gpu-08: 8 2080ti [cpu: 6/24, gres/gpu: 4/8, mem: 60 GB/257 GB] []
 
-with open(names, 'w+') as out:
-    yaml.dump(doc, out)
-
-values = doc['components']['star']['init'][0]['values']
-with open('params.csv') as f:
-    for i, record in enumerate(reader(f)):
-        values['logg'] = record[6]
-        with open(f'config-{i}.yaml', 'w') as out:
-            yaml.dump(doc, out)
+# make yaml
+# change name
+# run on server
