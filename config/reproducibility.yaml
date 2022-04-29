@@ -12,9 +12,9 @@ trainer:
   # how many iterations between validations
   validate_after_iters: 20 # 1 epoch: trainer.loaders['train'].dataset.__len__()
   # how many iterations between tensorboard logging
-  log_after_iters: 20 # originally 50
+  log_after_iters: 5 # originally 50
   # max number of epochs
-  max_num_epochs: 3 # 300
+  max_num_epochs: 300 # 300
   # max number of iterations
   max_num_iterations: 10000000000
   # model with higher eval score is considered better = [loss = eval]
