@@ -5,7 +5,7 @@
       <paths name="sablab">
         <serverdata>
           <mappings>
-            <mapping deploy="/biopsy-prediction" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/cspca-classification-fusion" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>

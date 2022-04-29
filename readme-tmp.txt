@@ -1,3 +1,5 @@
+conda env create -f environment.yaml
+
 
 the csv file is from preprocessing script.
 loaders:
@@ -33,7 +35,7 @@ for names in all_yaml:
         ff.write(newf)
 
 
-#  -> sablab-gpu-08: 8 2080ti [cpu: 6/24, gres/gpu: 4/8, mem: 60 GB/257 GB] []
+ -> sablab-gpu-12: 8 a6000 [cpu: 16/32, gres/gpu: 4/8, mem: 192 GB/385 GB] []
 
 # make yaml
 # change name

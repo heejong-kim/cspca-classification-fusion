@@ -1,13 +1,13 @@
 import h5py
 from torch.utils.data import Dataset
-import utils
+from .utils import get_logger
 import pandas as pd
 import numpy as np
 from scipy.ndimage.filters import gaussian_filter
 import torchio as tio
 import yaml # pyyaml
 
-logger = utils.get_logger('ConfigLoader')
+logger = get_logger('ConfigLoader')
 
 def getBoundingBoxMultichannel(Image, MRvox_middle, xthr, ythr, zthr):
     # zero padding
