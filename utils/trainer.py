@@ -3,9 +3,9 @@ Many functions are based on "pytorch-3dunet" and modified.
 https://github.com/wolny/pytorch-3dunet
 '''
 
-from utils import get_logger, get_tensorboard_formatter, create_sample_plotter, create_optimizer, \
-    create_lr_scheduler, get_number_of_learnable_parameters
-import utils
+# from .utils import get_logger, get_tensorboard_formatter, create_sample_plotter, create_optimizer, \
+#     create_lr_scheduler, get_number_of_learnable_parameters
+from .utils import *
 import os
 import numpy as np
 
@@ -237,7 +237,7 @@ class Trainer:
     def from_checkpoint(cls, resume, model, optimizer, lr_scheduler, loss_criterion, eval_criterion, loaders,
                         tensorboard_formatter=None, sample_plotter=None, **kwargs):
         logger.info(f"Loading checkpoint '{resume}'...")
-        state = utils.load_checkpoint(resume, model, optimizer)
+        state = load_checkpoint(resume, model, optimizer)
         logger.info(
             f"Checkpoint loaded. Epoch: {state['epoch']}. Best val score: {state['best_eval_score']}. Num_iterations: {state['num_iterations']}")
         checkpoint_dir = os.path.split(resume)[0]
@@ -269,7 +269,7 @@ class Trainer:
                         tensorboard_formatter=None, sample_plotter=None,
                         skip_train_validation=False, **kwargs):
         logger.info(f"Logging pre-trained model from '{pre_trained}'...")
-        utils.load_checkpoint(pre_trained, model, None)
+        load_checkpoint(pre_trained, model, None)
         if 'checkpoint_dir' not in kwargs:
             checkpoint_dir = os.path.split(pre_trained)[0]
         else:
@@ -312,8 +312,8 @@ class Trainer:
             True if the training should be terminated immediately, False otherwise
         """
 
-        train_losses = utils.RunningAverage()
-        train_eval_scores = utils.RunningAverage()
+        train_losses = RunningAverage()
+        train_eval_scores = RunningAverage()
 
         # sets the model in training mode
         self.model.train()
@@ -452,10 +452,10 @@ class Trainer:
     def validate(self):
         logger.info('Validating...')
 
-        val_losses = utils.RunningAverage()
-        val_scores = utils.RunningAverage()
-        val_precision = utils.RunningAverage()
-        val_recall = utils.RunningAverage()
+        val_losses = RunningAverage()
+        val_scores = RunningAverage()
+        val_precision = RunningAverage()
+        val_recall = RunningAverage()
 
         if self.sample_plotter is not None:
             self.sample_plotter.update_current_dir()
@@ -648,7 +648,7 @@ class Trainer:
         else:
             state_dict = self.model.state_dict()
 
-        utils.save_checkpoint({
+        save_checkpoint({
             'epoch': self.num_epoch + 1,
             'num_iterations': self.num_iterations,
             'model_state_dict': state_dict,
