@@ -28,7 +28,7 @@ def seed_worker(worker_id):
 
 def get_model(model_config):
     def _model_class(class_name):
-        modules = ['.model']
+        modules = ['utils.model']
         for module in modules:
             m = importlib.import_module(module)
             clazz = getattr(m, class_name, None)
@@ -40,7 +40,7 @@ def get_model(model_config):
 
 def get_loader(loader_config):
     def _loader_class(class_name):
-        modules = ['.loader']
+        modules = ['utils.loader']
         for module in modules:
             m = importlib.import_module(module)
             clazz = getattr(m, class_name, None)
