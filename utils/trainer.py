@@ -301,7 +301,7 @@ class Trainer:
 
             self.num_epoch += 1
             ## -- Check memory
-            os.system('nvidia-smi')
+            # os.system('nvidia-smi')
 
         logger.info(f"Reached maximum number of epochs: {self.max_num_epochs}. Finishing training...")
 

@@ -1,8 +1,8 @@
 name: cspca-classification-fusion
 channels:
-  - anaconda
   - pytorch
   - conda-forge
+  - anaconda
   - defaults
 dependencies:
   - _libgcc_mutex=0.1=main
@@ -15,7 +15,7 @@ dependencies:
   - brotli-bin=1.0.9=h7f98852_5
   - brotlipy=0.7.0=py39h27cfd23_1003
   - bzip2=1.0.8=h7b6447c_0
-  - ca-certificates=2021.10.8=ha878542_0
+  - ca-certificates=2022.3.29=h06a4308_1
   - certifi=2021.10.8=py39hf3d152e_2
   - cffi=1.15.0=py39hd667e15_1
   - charset-normalizer=2.0.4=pyhd3eb1b0_0
@@ -40,6 +40,7 @@ dependencies:
   - hdf5=1.10.6=hb1b8bf9_0
   - icu=58.2=hf484d3e_1000
   - idna=3.3=pyhd3eb1b0_0
+  - ignite=0.4.8=py_0
   - intel-openmp=2021.4.0=h06a4308_3561
   - ipython=8.2.0=py39h06a4308_0
   - jedi=0.18.1=py39h06a4308_1
@@ -155,4 +156,4 @@ dependencies:
     - tqdm==4.64.0
     - ttach==0.0.3
     - wrapt==1.14.0
-prefix: /media/HDD4T/utils/miniconda3/envs/cspca-classification-fusion
+prefix: /home/hk672/miniconda3/envs/cspca-classification-fusion

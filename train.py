@@ -9,8 +9,6 @@ from utils.trainer import TrainerBuilder
 import sys
 import os
 
-# ##-- NOTE: If you want to want to control GPU to be deterministic as well uncomment below:
-
 def main(conf_fname):
     logger = get_logger('TrainingSetup')
     config = _load_config_yaml(conf_fname)
@@ -22,7 +20,9 @@ def main(conf_fname):
         np.random.seed(manual_seed)
         random.seed(manual_seed)
         os.environ['PYTHONHASHSEED'] = str(manual_seed)
-        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.deterministic = True # this might make your code slow
+        torch.use_deterministic_algorithms()
+
 
     device_str = config.get('device', None)
     if device_str is not None:
