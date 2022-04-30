@@ -19,8 +19,10 @@ def main(conf_fname):
         torch.manual_seed(manual_seed)
         np.random.seed(manual_seed)
         random.seed(manual_seed)
-        os.environ['PYTHONHASHSEED'] = str(manual_seed)
-        torch.backends.cudnn.deterministic = True # this might make your code slow
+        # ## to control gpu as well, uncomment following lines
+        # ## this might make your code slow
+        # os.environ['PYTHONHASHSEED'] = str(manual_seed)
+        # torch.backends.cudnn.deterministic = True
 
 
     device_str = config.get('device', None)
@@ -39,12 +41,9 @@ def main(conf_fname):
     logger.info(config)
 
     trainer = TrainerBuilder.build(config)
-    # return trainer
-    # sanity_check(trainer) # sanity check
-    ##--- Start training
     trainer.fit()
 
 if __name__ == "__main__":
     conf_fname = sys.argv[1]
-    print(conf_fname)
+    # print(conf_fname)
     main(conf_fname)

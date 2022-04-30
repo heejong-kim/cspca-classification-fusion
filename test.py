@@ -144,9 +144,17 @@ def get_prediction_each_modality(config_dir, confignamebase=None, num_of_seeds=5
                 config_name = os.path.join(config_dir,
                                        f'{confignamebase}-seed{seed}.yaml')
 
+
         # get config
+        model_dir = None
         config = _load_config_yaml(config_name)
-        trainer_eval = load_trained_model(config, server=server, local_model_dir=local_model_dir)
+
+        if server:
+            model_dir = os.path.join(local_model_dir, config['trainer']['checkpoint_dir'].split('/')[-1])
+            config['loaders']['csvfname'] = '/home/heejong/data/prostatex/demo-h5-sitk/prostateX-demo-csPCa-prediction-multimodal-sitk-newidx.csv'
+
+
+        trainer_eval = load_trained_model(config, server=server, local_model_dir=model_dir)
         device = trainer_eval.device
 
         with torch.no_grad():
@@ -240,7 +248,8 @@ def get_prediction_file(seeds_pred, target, fnamebase, testdemo, test_n_epochs):
     prostatex_prediction.to_csv(fnamebase + '.csv', index=False)
     return seeds_pred_reshape.mean(0).T
 
-def load_trained_model_setouttest(config, testsetcsv):
+def load_trained_model_setouttest(config, testsetcsv,server, local_model_dir):
+
     '''
     change config for analysis
     '''
@@ -259,9 +268,12 @@ def load_trained_model_setouttest(config, testsetcsv):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    model_dir = config['trainer']['checkpoint_dir']
-    # resultname = os.path.join(output_dir, f'top5-prediction-test.npy')
-    # if not os.path.exists(resultname):
+
+    if server:
+        model_dir = local_model_dir
+    else:
+        model_dir = config['trainer']['checkpoint_dir']
+
     if True:
         manual_seed = config.get('manual_seed', None)
         if manual_seed is not None:
@@ -319,7 +331,8 @@ def load_trained_model_setouttest(config, testsetcsv):
 
     return trainer_eval
 
-def get_prediction_each_modality_setouttest(config_dir, testsetcsv, confignamebase=None, num_of_seeds=5):
+def get_prediction_each_modality_setouttest(config_dir, testsetcsv, confignamebase=None, num_of_seeds=5,
+                                            server=False, local_model_dir=None):
     seeds_pred_val = []
     seeds_pred_test = []
 
@@ -339,10 +352,17 @@ def get_prediction_each_modality_setouttest(config_dir, testsetcsv, confignameba
                 config_name = os.path.join(config_dir,
                                        f'{confignamebase}-seed{seed}.yaml')
 
+
         # get config
         config = _load_config_yaml(config_name)
-        trainer_eval = load_trained_model_setouttest(config, testsetcsv)
+        model_dir = None
+        if server:
+            model_dir = os.path.join(local_model_dir, config['trainer']['checkpoint_dir'].split('/')[-1])
+            config['loaders']['csvfname'] = '/home/heejong/data/prostatex/demo-h5-sitk/prostateX-demo-csPCa-prediction-multimodal-sitk-newidx.csv'
+
+        trainer_eval = load_trained_model_setouttest(config, testsetcsv, server=server, local_model_dir=model_dir)
         device = trainer_eval.device
+
 
         with torch.no_grad():
             for i, t in enumerate(trainer_eval.loaders['val']):
@@ -779,272 +799,101 @@ def ensemble_average_saliency_map_with_prediction(config_dirbase, list_ensemble_
 
 
 
+def get_test_demo(testdemof):
+
+    testdemo = pd.read_csv(testdemof)  # config['loaders']['csvfname']
+    testdemo = testdemo[testdemo.trainvaltest == 'test'].reset_index()
+
+    return testdemo
+
 
 def main():
+    '''
+    1. Save results for validation / testing set
+    1.1. Single modality (t2 / ADC / DWIb800 / Ktrans)
+    '''
 
-    def save_results_test():
-        '''
-        1. Save results for validation / testing set
-        - Single modality (t2 / ADC / DWIb800 / Ktrans)
-        - Late fusion: Ensemble single modality results
-        - Early fusion: 3 channel inputs
-        '''
+    dir_final_result = './test-results'
+    dir_final_prediction = os.path.join(dir_final_result, 'prediction')
+    if not os.path.exists(dir_final_prediction):
+        os.makedirs(dir_final_prediction)
 
-        dir_final_result = './test-results'
-        dir_final_prediction = os.path.join(dir_final_result, 'prediction')
-        if not os.path.exists(dir_final_prediction):
-            os.makedirs(dir_final_prediction)
+    # local
+    testdemof = '/home/heejong/data/prostatex/demo-h5-sitk/prostateX-demo-csPCa-prediction-multimodal-sitk-newidx.csv'
+    testdemof = '/share/sablab/nfs04/data/PROSTATEx/preprocessed/PROSTATEx-new/prostateX-demo-csPCa-prediction-multimodal-sitk-newidx-scratch.csv' # server
+    testdemo = get_test_demo(testdemof)
+    test_n_epochs = 1
 
-        # local
-        testdemof = '/home/heejong/data/prostatex/demo-h5-sitk/prostateX-demo-csPCa-prediction-multimodal-sitk-newidx.csv'
-        # server
-        testdemof = '/share/sablab/nfs04/data/PROSTATEx/preprocessed/PROSTATEx-new/prostateX-demo-csPCa-prediction-multimodal-sitk-newidx-scratch.csv'
+    config_dirbase = './config/'  # local
 
+    list_modality = ['t2' , 'adc', 'ktrans', 'dwib800']
 
-        testdemo = pd.read_csv(testdemof) # config['loaders']['csvfname']
-        testdemo = testdemo[testdemo.trainvaltest == 'test'].reset_index()
-        test_n_epochs = 1
-
-        #### T2
-        config_dirbase = './config/' # local
+    for mod in list_modality[1:]: # t2 is still running
         confignamebase = None
-        config_dir = f'{config_dirbase}/t2/' # local
+        config_dir = f'{config_dirbase}/{mod}/'
         # 15 init ensemble
-        seeds_pred_val_t2_15init, seeds_pred_test_t2_15init, target_val, target_test = get_prediction_each_modality(config_dir, confignamebase,num_of_seeds=15)
-        _ = get_prediction_file(seeds_pred_test_t2_15init, np.array(target_test),
-                            os.path.join(dir_final_prediction, '8conv4mpfcf4-earlystopping-eval-t2-15init'), testdemo,
-                            test_n_epochs)
-
-        # 5 init ensemble
-        seeds_pred_val_t2, seeds_pred_test_t2, target_val, target_test = get_prediction_each_modality(config_dir, confignamebase,
-                                                                                  server=False, local_model_dir=None,test_saliency=True)
-        _ = get_prediction_file(seeds_pred_test_t2, np.array(target_test),
-                            os.path.join(dir_final_prediction, '8conv4mpfcf4-earlystopping-eval-t2'), testdemo,
-                            test_n_epochs)
-
-
-        #### ADC
-        config_dir = f'{config_dirbase}/adc/'  # local
-        # 15 init ensemble
-        seeds_pred_val_adc_15init, seeds_pred_test_adc_15init, target_val, target_test = get_prediction_each_modality(config_dir, confignamebase,num_of_seeds=15)
-        _ = get_prediction_file(seeds_pred_test_adc_15init, np.array(target_test),
-                            os.path.join(dir_final_prediction, '8conv4mpfcf4-earlystopping-eval-adc-15init'), testdemo,
-                            test_n_epochs)
-
-        # 5 init ensemble
-        seeds_pred_val_adc, seeds_pred_test_adc, _, _ = get_prediction_each_modality(config_dir, confignamebase,
-                                                                                  server=False, local_model_dir=None,test_saliency=True)
-        _ = get_prediction_file(seeds_pred_test_adc, np.array(target_test),
-                            os.path.join(dir_final_prediction, '8conv4mpfcf4-earlystopping-eval-adc'), testdemo,
-                            test_n_epochs)
-
-        ## Compare
-        seeds_pred = np.array(seeds_pred_test_adc_15init).squeeze()
-        # n_epochs = trainer_eval.loaders['test'].__len__()
-        if test_n_epochs > 1:
-            seeds_pred_reshape = []
-            for ne in range(int(len(seeds_pred) / test_n_epochs)):
-                print((ne * 4), (ne * 4) + (test_n_epochs - 1))
-                seeds_pred_split = seeds_pred[(ne * 4):(ne * 4) + (test_n_epochs - 1) + 1]
-                seeds_pred_concat = np.concatenate(seeds_pred_split, 0)
-                seeds_pred_reshape.append(seeds_pred_concat)
-
-            seeds_pred_reshape = np.array(seeds_pred_reshape).squeeze()
-        else:
-            seeds_pred_reshape = seeds_pred
-
-        rng_seed = 42  # control reproducibility
-        rng = np.random.RandomState(rng_seed)
-        # rng = np.random.default_rng()
-        n_trials = 10000
-
-        dir_prediction = '/home/heejong/projects/biopsy-prediction/prostatex_final_result/prediction/'
-        model_basename = '8conv4mpfcf4-earlystopping-eval-'
-
-        dir_prediction = './test-results/prediction/'
-        model_basename = '8conv4mpfcf4-earlystopping-eval-'
-
-        chan1_adc, target = ensemble_different_modality(dir_prediction, model_basename, ['adc-15init'])
-        print_all_results(target, chan1_adc, n_trials, rng)
-        print_all_results(target, seeds_pred_reshape.mean(0), n_trials, rng)
-
-
-    config_dir = f'{config_dirbase}/ktrans/'  # local
-        # 15 init ensemble
-        seeds_pred_val_ktrans_15init, seeds_pred_test_ktrans_15init, target_val, target_test = get_prediction_each_modality(config_dir, confignamebase,num_of_seeds=15)
-        _ = get_prediction_file(seeds_pred_test_ktrans_15init, np.array(target_test),
-                            os.path.join(dir_final_prediction, '8conv4mpfcf4-earlystopping-eval-ktrans-15init'), testdemo,
-                            test_n_epochs)
-        # 5 init ensemble
-        seeds_pred_val_ktrans, seeds_pred_test_ktrans, _, _ = get_prediction_each_modality(config_dir, confignamebase,
-                                                                                  server=False, local_model_dir=None,test_saliency=True)
-        _ = get_prediction_file(seeds_pred_test_ktrans, np.array(target_test),
-                            os.path.join(dir_final_prediction, '8conv4mpfcf4-earlystopping-eval-ktrans'), testdemo,
-                            test_n_epochs)
-
-
-
-        config_dir = f'{config_dirbase}/dwib800/'  # local
-        # 15 init ensemble
-        seeds_pred_val_dwib800_15init, seeds_pred_test_dwib800_15init, target_val, target_test = get_prediction_each_modality(config_dir, confignamebase,num_of_seeds=15)
-        _ = get_prediction_file(seeds_pred_test_dwib800_15init, np.array(target_test),
-                                os.path.join(dir_final_prediction, '8conv4mpfcf4-earlystopping-eval-dwib800-15init'), testdemo,
+        seeds_pred_val_15init, seeds_pred_test_15init, target_val, target_test = get_prediction_each_modality(
+            config_dir, confignamebase, num_of_seeds=15)
+        _ = get_prediction_file(seeds_pred_test_15init, np.array(target_test),
+                                os.path.join(dir_final_prediction, f'8conv4mpfcf4-earlystopping-eval-{mod}-15init'),
+                                testdemo,
                                 test_n_epochs)
-        # 5 init ensemble
-        seeds_pred_val_dwib800, seeds_pred_test_dwib800, _, _ = get_prediction_each_modality(config_dir, confignamebase,
-                                                                                  server=False, local_model_dir=None,test_saliency=True)
 
-        _ = get_prediction_file(seeds_pred_test_dwib800, np.array(target_test),
-                            os.path.join(dir_final_prediction, '8conv4mpfcf4-earlystopping-eval-dwib800'), testdemo,
+        del seeds_pred_val_15init
+        del seeds_pred_test_15init
+        # 5 init ensemble : for fusion
+        seeds_pred_val, seeds_pred_test, target_val, target_test = get_prediction_each_modality(config_dir,
+                                                                                                      confignamebase,
+                                                                                                      server=False,
+                                                                                                      local_model_dir=None,
+                                                                                                      test_saliency=True)
+        _ = get_prediction_file(seeds_pred_test, np.array(target_test),
+                                os.path.join(dir_final_prediction, f'8conv4mpfcf4-earlystopping-eval-{mod}'), testdemo,
+                                test_n_epochs)
+        del seeds_pred_val
+        del seeds_pred_test
+
+
+
+    '''
+    1.2. Early fusion: 3 channel inputs
+    '''
+    # 3 channel input [t2-adc-dwib800]
+    # TODO: After training is done run this on the server
+    config_dir = f'{config_dirbase}/t2-adc-dwib800/'  # local
+    confignamebase = 'augment-all-cnn3d8conv4mp3fcf7-batch64-adam-lre-0001-bcelogit-auc-nobfc'
+
+    seeds_pred_val_3channel_dwib800, seeds_pred_test_3channel_dwib800, _, _ = get_prediction_each_modality(
+        config_dir, confignamebase, num_of_seeds=15,
+        server=False, local_model_dir=None, test_saliency=True)
+
+    _ = get_prediction_file(seeds_pred_test_3channel_dwib800, np.array(target_test),
+                            os.path.join(dir_final_prediction,
+                                         '8conv4mpfcf7-earlystopping-eval-3channel-t2-adc-dwib800'), testdemo,
                             test_n_epochs)
 
 
+    # 3 channel input [t2-adc-ktrans]
+    config_dir = f'{config_dirbase}/t2-adc-ktrans/'  # local
+    confignamebase = 'augment-all-cnn3d8conv4mp3fcf7-batch64-adam-lre-0001-bcelogit-auc-nobfc'
 
-        config_dir = f'{config_dirbase}/adc-unregistered/'  # local
-        # 15 init ensemble
-        seeds_pred_val_adc_unregistered_15init, seeds_pred_test_adc_unregistered_15init, target_val, target_test = get_prediction_each_modality(config_dir, confignamebase,num_of_seeds=15)
-        _ = get_prediction_file(seeds_pred_test_adc_unregistered_15init, np.array(target_test),
-                            os.path.join(dir_final_prediction, '8conv4mpfcf4-earlystopping-eval-adc-unregistered-15init'), testdemo,
+    seeds_pred_val_3channel_ktrans, seeds_pred_test_3channel_ktrans, _, _ = get_prediction_each_modality(
+        config_dir, confignamebase, num_of_seeds=15,
+        server=False, local_model_dir=None, test_saliency=True)
+    _ = get_prediction_file(seeds_pred_test_3channel_ktrans, np.array(target_test),
+                            os.path.join(dir_final_prediction,
+                                         '8conv4mpfcf7-earlystopping-eval-3channel-t2-adc-ktrans'), testdemo,
                             test_n_epochs)
 
-        # 5 init ensemble
-        seeds_pred_val_adc_unregistered, seeds_pred_test_adc_unregistered, _, _ = get_prediction_each_modality(config_dir, confignamebase,
-                                                                                  server=False, local_model_dir=None,test_saliency=True)
-        _ = get_prediction_file(seeds_pred_test_adc_unregistered, np.array(target_test),
-                            os.path.join(dir_final_prediction, '8conv4mpfcf4-earlystopping-eval-adc-unregistered'), testdemo,
-                            test_n_epochs)
-
-
-        config_dir = f'{config_dirbase}/dwib800-unregistered/'  # local
-        # 15 init ensemble
-        seeds_pred_val_dwib800_unregistered_15init, seeds_pred_test_dwib800_unregistered_15init, target_val, target_test = get_prediction_each_modality(config_dir, confignamebase,num_of_seeds=15)
-        _ = get_prediction_file(seeds_pred_test_dwib800_unregistered_15init, np.array(target_test),
-                            os.path.join(dir_final_prediction, '8conv4mpfcf4-earlystopping-eval-dwib800-unregistered-15init'), testdemo,
-                            test_n_epochs)
-
-        # 5 init ensemble
-        seeds_pred_val_dwib800_unregistered, seeds_pred_test_dwib800_unregistered, _, _ = get_prediction_each_modality(config_dir, confignamebase,
-                                                                                  server=False, local_model_dir=None,test_saliency=True)
-        _ = get_prediction_file(seeds_pred_test_dwib800_unregistered, np.array(target_test),
-                            os.path.join(dir_final_prediction, '8conv4mpfcf4-earlystopping-eval-dwib800-unregistered'), testdemo,
-                            test_n_epochs)
+    '''
+    1.3 Late fusion: 1 channel input + multimodal ensemble
+    '''
 
 
 
-        # 3 channel input with registration
-        config_dir = f'{config_dirbase}/t2-adc-ktrans/comparison-f7/' # local
-        confignamebase = 'augment-all-cnn3d8conv4mp3fcf7-batch64-adam-lre-0001-bcelogit-auc-nobfc'
-        seeds_pred_val_3channel_ktrans, seeds_pred_test_3channel_ktrans, _, _ = get_prediction_each_modality(
-                                                                                    config_dir,confignamebase, num_of_seeds=15,
-                                                                                    server=False, local_model_dir=None,test_saliency=True)
-        _ = get_prediction_file(seeds_pred_test_3channel_ktrans, np.array(target_test),
-                            os.path.join(dir_final_prediction, '8conv4mpfcf4-earlystopping-eval-3channel-t2-adc-ktrans'), testdemo,
-                            test_n_epochs)
-
-        config_dir = f'{config_dirbase}/t2-adc-dwib800/comparison-f7/' # local
-        confignamebase = 'augment-all-cnn3d8conv4mp3fcf7-batch64-adam-lre-0001-bcelogit-auc-nobfc'
-
-        seeds_pred_val_3channel_dwib800, seeds_pred_test_3channel_dwib800, _, _ = get_prediction_each_modality(
-                                                                                    config_dir,confignamebase, num_of_seeds=15,
-                                                                                    server=False, local_model_dir=None,test_saliency=True)
-
-        _ = get_prediction_file(seeds_pred_test_3channel_dwib800, np.array(target_test),
-                            os.path.join(dir_final_prediction, '8conv4mpfcf4-earlystopping-eval-3channel-t2-adc-dwib800'), testdemo,
-                            test_n_epochs)
-
-
-        # 3 channel input without registration
-        config_dir = f'{config_dirbase}/t2-adc-ktrans-unregistered/comparison-f7/' # local
-        confignamebase = 'augment-all-cnn3d8conv4mp3fcf7-batch64-adam-lre-0001-bcelogit-auc-nobfc'
-        seeds_pred_val_3channel_ktrans_unregistered, seeds_pred_test_3channel_ktrans_unregistered, _, _ = get_prediction_each_modality(
-                                                                                    config_dir,confignamebase, num_of_seeds=15,
-                                                                                    server=False, local_model_dir=None,test_saliency=True)
-        _ = get_prediction_file(seeds_pred_test_3channel_ktrans_unregistered, np.array(target_test),
-                            os.path.join(dir_final_prediction, '8conv4mpfcf4-earlystopping-eval-3channel-t2-adc-ktrans-unregistered'), testdemo,
-                            test_n_epochs)
-
-        config_dir = f'{config_dirbase}/t2-adc-dwib800-unregistered/comparison-f7/' # local
-        confignamebase = 'augment-all-cnn3d8conv4mp3fcf7-batch64-adam-lre-0001-bcelogit-auc-nobfc'
-
-        seeds_pred_val_3channel_dwib800_unregistered, seeds_pred_test_3channel_dwib800_unregistered, _, _ = get_prediction_each_modality(
-                                                                                    config_dir,confignamebase, num_of_seeds=15,
-                                                                                    server=False, local_model_dir=None,test_saliency=True)
-
-        _ = get_prediction_file(seeds_pred_test_3channel_dwib800_unregistered, np.array(target_test),
-                            os.path.join(dir_final_prediction, '8conv4mpfcf4-earlystopping-eval-3channel-t2-adc-dwib800-unregistered'), testdemo,
-                            test_n_epochs)
-
-
-        ################
-        ## Saliency map
-        ################
-        ## Saliency map ensemble
-        dir_final_saliency = os.path.join(dir_final_result, 'saliency')
-        if not os.path.exists(dir_final_saliency):
-            os.makedirs(dir_final_saliency)
-
-        num_of_seeds = 5
-        testdemof = '/home/heejong/data/prostatex/demo-h5-sitk/prostateX-demo-csPCa-prediction-multimodal-sitk-newidx.csv'
-        testdemo = pd.read_csv(testdemof) # config['loaders']['csvfname']
-        testdemo = testdemo[testdemo.trainvaltest == 'test'].reset_index()
-
-        save_ensemble_saliency_dir = dir_final_saliency + '-1channel'
-        config_dirbase = './config-prostatex-local-8conv4mpfcf4-earlystopping-eval' # local
-        confignamebase = None
-        list_ensemble_saliency = ['t2', 'adc-unregistered', 'dwib800-unregistered']
-        ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase,num_of_seeds, testdemo,
-                                      save_ensemble_saliency_dir, saveslice=False, save_format='.png')
-        # ensemble_average_saliency_map_with_prediction(config_dirbase, list_ensemble_saliency, confignamebase,
-        #                                               num_of_seeds, testdemo,
-        #                                               chan1_t2_adc_dwib800, save_ensemble_saliency_dir,saveslice=False,
-        #                                               save_format='.png')
-
-        list_ensemble_saliency = ['t2', 'adc-unregistered', 'ktrans']
-        ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase,num_of_seeds, testdemo,
-                                      save_ensemble_saliency_dir)
-
-        list_ensemble_saliency = ['t2']
-        ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase,num_of_seeds, testdemo,
-                                      save_ensemble_saliency_dir)
-
-        list_ensemble_saliency = ['adc-unregistered']
-        ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase,num_of_seeds, testdemo,
-                                      save_ensemble_saliency_dir)
-
-        list_ensemble_saliency = ['dwib800-unregistered']
-        ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase,num_of_seeds, testdemo,
-                                      save_ensemble_saliency_dir)
-
-        list_ensemble_saliency = ['ktrans']
-        ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase,num_of_seeds, testdemo,
-                                      save_ensemble_saliency_dir)
-
-
-        num_of_seeds = 15
-        list_ensemble_saliency = ['t2-adc-dwib800']
-        save_ensemble_saliency_dir = dir_final_saliency + '-3channel'
-        confignamebase = 'comparison-f7/augment-all-cnn3d8conv4mp3fcf7-batch64-adam-lre-0001-bcelogit-auc-nobfc'
-        ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase, num_of_seeds, testdemo,
-                                      save_ensemble_saliency_dir)
-
-        list_ensemble_saliency = ['t2-adc-ktrans']
-        save_ensemble_saliency_dir = dir_final_saliency + '-3channel'
-        confignamebase = 'comparison-f7/augment-all-cnn3d8conv4mp3fcf7-batch64-adam-lre-0001-bcelogit-auc-nobfc'
-        ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase, num_of_seeds, testdemo,
-                                      save_ensemble_saliency_dir)
-
-        list_ensemble_saliency = ['t2-adc-dwib800-unregistered']
-        save_ensemble_saliency_dir = dir_final_saliency + '-3channel'
-        confignamebase = 'comparison-f7/augment-all-cnn3d8conv4mp3fcf7-batch64-adam-lre-0001-bcelogit-auc-nobfc'
-        ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase, num_of_seeds, testdemo,
-                                      save_ensemble_saliency_dir)
-
-        list_ensemble_saliency = ['t2-adc-ktrans-unregistered']
-        save_ensemble_saliency_dir = dir_final_saliency + '-3channel'
-        confignamebase = 'comparison-f7/augment-all-cnn3d8conv4mp3fcf7-batch64-adam-lre-0001-bcelogit-auc-nobfc'
-        ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase, num_of_seeds, testdemo,
-                                      save_ensemble_saliency_dir)
-
+    '''
+    2. Print total statistics
+    '''
 
 
     def print_results_test_statistics():
@@ -1137,8 +986,180 @@ def main():
         pvalue_delong_roc_test(target, chan1_t2, chan3_t2_adc_ktrans)
 
 
+    '''
+    3. Saliency map
+    '''
+
+    ## Saliency map ensemble
+    dir_final_saliency = os.path.join(dir_final_result, 'saliency')
+    if not os.path.exists(dir_final_saliency):
+        os.makedirs(dir_final_saliency)
+
+    num_of_seeds = 5
+    testdemof = '/home/heejong/data/prostatex/demo-h5-sitk/prostateX-demo-csPCa-prediction-multimodal-sitk-newidx.csv'
+    testdemo = pd.read_csv(testdemof) # config['loaders']['csvfname']
+    testdemo = testdemo[testdemo.trainvaltest == 'test'].reset_index()
+
+    save_ensemble_saliency_dir = dir_final_saliency + '-1channel'
+    config_dirbase = './config-prostatex-local-8conv4mpfcf4-earlystopping-eval' # local
+    confignamebase = None
+    list_ensemble_saliency = ['t2', 'adc-unregistered', 'dwib800-unregistered']
+    ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase,num_of_seeds, testdemo,
+                                  save_ensemble_saliency_dir, saveslice=False, save_format='.png')
+    # ensemble_average_saliency_map_with_prediction(config_dirbase, list_ensemble_saliency, confignamebase,
+    #                                               num_of_seeds, testdemo,
+    #                                               chan1_t2_adc_dwib800, save_ensemble_saliency_dir,saveslice=False,
+    #                                               save_format='.png')
+
+    list_ensemble_saliency = ['t2', 'adc-unregistered', 'ktrans']
+    ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase,num_of_seeds, testdemo,
+                                  save_ensemble_saliency_dir)
+
+    list_ensemble_saliency = ['t2']
+    ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase,num_of_seeds, testdemo,
+                                  save_ensemble_saliency_dir)
+
+    list_ensemble_saliency = ['adc-unregistered']
+    ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase,num_of_seeds, testdemo,
+                                  save_ensemble_saliency_dir)
+
+    list_ensemble_saliency = ['dwib800-unregistered']
+    ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase,num_of_seeds, testdemo,
+                                  save_ensemble_saliency_dir)
+
+    list_ensemble_saliency = ['ktrans']
+    ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase,num_of_seeds, testdemo,
+                                  save_ensemble_saliency_dir)
 
 
+    num_of_seeds = 15
+    list_ensemble_saliency = ['t2-adc-dwib800']
+    save_ensemble_saliency_dir = dir_final_saliency + '-3channel'
+    confignamebase = 'comparison-f7/augment-all-cnn3d8conv4mp3fcf7-batch64-adam-lre-0001-bcelogit-auc-nobfc'
+    ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase, num_of_seeds, testdemo,
+                                  save_ensemble_saliency_dir)
+
+    list_ensemble_saliency = ['t2-adc-ktrans']
+    save_ensemble_saliency_dir = dir_final_saliency + '-3channel'
+    confignamebase = 'comparison-f7/augment-all-cnn3d8conv4mp3fcf7-batch64-adam-lre-0001-bcelogit-auc-nobfc'
+    ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase, num_of_seeds, testdemo,
+                                  save_ensemble_saliency_dir)
+
+    list_ensemble_saliency = ['t2-adc-dwib800-unregistered']
+    save_ensemble_saliency_dir = dir_final_saliency + '-3channel'
+    confignamebase = 'comparison-f7/augment-all-cnn3d8conv4mp3fcf7-batch64-adam-lre-0001-bcelogit-auc-nobfc'
+    ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase, num_of_seeds, testdemo,
+                                  save_ensemble_saliency_dir)
+
+    list_ensemble_saliency = ['t2-adc-ktrans-unregistered']
+    save_ensemble_saliency_dir = dir_final_saliency + '-3channel'
+    confignamebase = 'comparison-f7/augment-all-cnn3d8conv4mp3fcf7-batch64-adam-lre-0001-bcelogit-auc-nobfc'
+    ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase, num_of_seeds, testdemo,
+                                  save_ensemble_saliency_dir)
+
+
+
+    '''
+    4. Challenge testset output & submission file
+    4.1 Single modality 
+    '''
+    challenge_testdemof = '/home/heejong/data/prostatex/demo-h5-sitk/prostateX-demo-challenge-testset.csv'
+    challenge_testdemof = '/share/sablab/nfs04/data/PROSTATEx/preprocessed/PROSTATEx-test/prostateX-demo-challenge-testset.csv'  # server
+
+    challenge_testdemo = pd.read_csv(challenge_testdemof)
+    challenge_testdemo = challenge_testdemo.drop(columns=['Unnamed: 0'])
+    # challenge_testdemo['h5-fname'] = challenge_testdemo['h5-fname'].str.replace('/home/heejong/data/prostatex/test/', '/share/sablab/nfs04/data/PROSTATEx/preprocessed/PROSTATEx-test/h5-patch/')
+    # challenge_testdemo.to_csv(challenge_testdemof)
+
+    config_dir_base = './config/'
+    test_n_epochs = 4
+
+    list_modality = ['t2' , 'adc', 'ktrans', 'dwib800']
+
+    dir_submission = './prostatex_submission'
+    if not os.path.exists(dir_submission):
+        os.makedirs(dir_submission)
+
+
+    for mod in list_modality: # t2 on server
+        subname = mod
+        config_dir = f'{config_dir_base}/{subname}/'
+        confignamebase = 'augment-all-cnn3d8conv4mp3fcf4-1channel-batch64-adam-lre-0001-bcelogit-auc-nobfc'
+        seeds_pred_val, seeds_pred_test, target_val, target_test = get_prediction_each_modality_setouttest(config_dir,
+                                                                                                           challenge_testdemof,
+                                                                                                           confignamebase=confignamebase,
+                                                                                                           num_of_seeds=15)
+        fnamebase = f'{dir_submission}/prostatex_submission_{subname}-earlystoppingAUC-15init'
+        _ = get_submission_file(seeds_pred_test, fnamebase, challenge_testdemo, test_n_epochs)
+
+        seeds_pred_val, seeds_pred_test, target_val, target_test = get_prediction_each_modality_setouttest(config_dir,
+                                                                                                           challenge_testdemof,
+                                                                                                           confignamebase=confignamebase,
+                                                                                                           num_of_seeds=5)
+        fnamebase = f'{dir_submission}/prostatex_submission_{subname}-earlystoppingAUC-5init'
+        _ = get_submission_file(seeds_pred_test, fnamebase, challenge_testdemo, test_n_epochs)
+
+        del seeds_pred_val
+        del seeds_pred_test
+        del target_val
+        del target_test
+
+
+    '''
+    4.2 Early Fusion
+    '''
+    # TODO: run DWIb800 when it is done (on server)
+    ############ 3 channel input (t2-adc-dwib800)
+    config_dir = f'{config_dirbase}/t2-adc-dwib800/'  # local
+    confignamebase = 'augment-all-cnn3d8conv4mp3fcf7-batch64-adam-lre-0001-bcelogit-auc-nobfc'
+    seeds_pred_val_3c, seeds_pred_test_3c, target_val_3c, target_test_3c = get_prediction_each_modality_setouttest(
+        config_dir, challenge_testdemof,
+        confignamebase, 15)
+    subname = '3channel-t2-adc-dwib800-f7-earlystoppingAUC'
+    fnamebase = f'{dir_submission}/prostatex_submission_{subname}'
+    _ = get_submission_file(seeds_pred_test_3c, fnamebase, challenge_testdemo, test_n_epochs)
+
+    del seeds_pred_val_3c
+    del seeds_pred_test_3c
+    del target_val_3c
+    del target_test_3c
+
+    ############ 3 channel input (t2-adc-ktrans)
+    config_dir = f'{config_dirbase}/t2-adc-ktrans/'  # local
+    confignamebase = 'augment-all-cnn3d8conv4mp3fcf7-batch64-adam-lre-0001-bcelogit-auc-nobfc'
+    seeds_pred_val_3c, seeds_pred_test_3c, target_val_3c, target_test_3c = get_prediction_each_modality_setouttest(
+        config_dir, challenge_testdemof,
+        confignamebase, 15)
+    subname = '3channel-t2-adc-ktrans-f7-earlystoppingAUC'
+    fnamebase = f'{dir_submission}/prostatex_submission_{subname}'
+    _ = get_submission_file(seeds_pred_test_3c, fnamebase, challenge_testdemo, test_n_epochs)
+
+    del seeds_pred_val_3c
+    del seeds_pred_test_3c
+    del target_val_3c
+    del target_test_3c
+
+    '''
+    4.3 Late Fusion
+    '''
+
+    seeds_pred_test_t2 = np.array(pd.read_csv(f'{dir_submission}/prostatex_submission_t2-earlystoppingAUC-5init.csv')['ClinSig'])
+    seeds_pred_test_adc = np.array(pd.read_csv(f'{dir_submission}/prostatex_submission_adc-earlystoppingAUC-5init.csv')['ClinSig'])
+    seeds_pred_test_dwib800 = np.array(pd.read_csv(f'{dir_submission}/prostatex_submission_dwib800-earlystoppingAUC-5init.csv')['ClinSig'])
+    seeds_pred_test_ktrans = np.array(pd.read_csv(f'{dir_submission}/prostatex_submission_ktrans-earlystoppingAUC-5init.csv')['ClinSig'])
+
+
+    ############ Late fusion: 1 channel multimodality ensemble (t2-adc-dwib800)
+    subname = 't2-adc-dwib800-earlystoppingAUC'
+    fnamebase = f'{dir_submission}/prostatex_submission_{subname}'
+    seeds_pred_t2_adc_dwib800_unregistered = (seeds_pred_test_t2 + seeds_pred_test_adc + seeds_pred_test_dwib800) / 3
+    get_separate_submission_file(seeds_pred_t2_adc_dwib800_unregistered, fnamebase, challenge_testdemo)
+
+    ############  Late fusion: 1 channel multimodality ensemble (t2-adc-ktrans)
+    subname = 't2-adc-ktrans-earlystoppingAUC'
+    fnamebase = f'{dir_submission}/prostatex_submission_{subname}'
+    seeds_pred_t2_adc_ktrans_unregistered = (seeds_pred_test_t2 + seeds_pred_test_adc + seeds_pred_test_ktrans) / 3
+    get_separate_submission_file(seeds_pred_t2_adc_ktrans_unregistered, fnamebase, challenge_testdemo)
 
 
 
@@ -1433,175 +1454,6 @@ def main():
 
 
 
-    def save_results_challenge_test():
-        '''
-        2. Get ensemble result for independent testing set (challenge)
-        '''
-
-        testdemof = '/home/heejong/data/prostatex/demo-h5-sitk/prostateX-demo-challenge-testset.csv'
-        # make test demo
-        if os.path.exists(testdemof):
-            testdemo = pd.read_csv(testdemof)
-            testdemo = testdemo.drop(columns=['Unnamed: 0'])
-
-        else:
-            dir_testset = '/home/heejong/data/prostatex/test/'
-            testlist = glob.glob(os.path.join(dir_testset, '*.h5'))
-            testlist.sort()
-
-            testdemo = pd.DataFrame()
-            testdemo['h5-fname'] = testlist
-            testdemo['ClinSig'] = np.nan
-            testdemo['trainvaltest'] = 'test'
-            testdemo.to_csv('/home/heejong/data/prostatex/demo-h5-sitk/prostateX-demo-challenge-testset.csv')
-
-        config_dir_base = './config-prostatex-local-8conv4mpfcf4-earlystopping-eval/'
-        test_n_epochs = 4
-
-        ############ t2
-        subname = 't2'
-        config_dir = config_dir_base  # local
-        confignamebase = 'augment-all-cnn3d8conv4mp3fcf4-1channel-batch64-adam-lre-0001-bcelogit-auc-nobfc'
-        # seeds_pred_val, seeds_pred_test, target_val, target_test = get_prediction_each_modality_setouttest(config_dir,
-        #                                                                                                    testdemof,
-        #                                                                                                    confignamebase=confignamebase,
-        #                                                                                                    num_of_seeds=5)
-        # fnamebase = f'/home/heejong/projects/biopsy-prediction/prostatex_submission/prostatex_submission_{subname}-earlystoppingAUC'
-        # seeds_pred_test_t2 = get_submission_file(seeds_pred_test, fnamebase, testdemo, test_n_epochs)
-
-        seeds_pred_val, seeds_pred_test, target_val, target_test = get_prediction_each_modality_setouttest(config_dir,
-                                                                                                           testdemof,
-                                                                                                           confignamebase=confignamebase,
-                                                                                                           num_of_seeds=15)
-        fnamebase = f'/home/heejong/projects/biopsy-prediction/prostatex_submission/prostatex_submission_{subname}-earlystoppingAUC-15init'
-        seeds_pred_test_t2 = get_submission_file(seeds_pred_test, fnamebase, testdemo, test_n_epochs)
-
-        del seeds_pred_val
-        del seeds_pred_test
-        del target_val
-        del target_test
-
-        ############ adc
-        subname = 'adc'
-        config_dir = f'{config_dir_base}/{subname}/'  # local
-        confignamebase = 'augment-all-cnn3d8conv4mp3fcf4-1channel-batch64-adam-lre-0001-bcelogit-auc-nobfc'
-        seeds_pred_val, seeds_pred_test, target_val, target_test = get_prediction_each_modality_setouttest(config_dir,
-                                                                                                           testdemof,
-                                                                                                           confignamebase=confignamebase,
-                                                                                                           num_of_seeds=15)
-        fnamebase = f'/home/heejong/projects/biopsy-prediction/prostatex_submission/prostatex_submission_{subname}-earlystoppingAUC-15init-rerun'
-        seeds_pred_test_adc = get_submission_file(seeds_pred_test, fnamebase, testdemo, test_n_epochs)
-
-        del seeds_pred_val
-        del seeds_pred_test
-        del target_val
-        del target_test
-
-        ############ dwib800
-        subname = 'dwib800'
-        config_dir = f'{config_dir_base}/{subname}/'  # local
-        confignamebase = 'augment-all-cnn3d8conv4mp3fcf4-1channel-batch64-adam-lre-0001-bcelogit-auc-nobfc'
-        seeds_pred_val, seeds_pred_test, target_val, target_test = get_prediction_each_modality_setouttest(config_dir,
-                                                                                                           testdemof,
-                                                                                                           confignamebase=confignamebase,
-                                                                                                           num_of_seeds=15)
-        fnamebase = f'/home/heejong/projects/biopsy-prediction/prostatex_submission/prostatex_submission_{subname}-earlystoppingAUC-15init'
-        seeds_pred_test_dwib800 = get_submission_file(seeds_pred_test, fnamebase, testdemo, test_n_epochs)
-
-        del seeds_pred_val
-        del seeds_pred_test
-        del target_val
-        del target_test
-
-        ############ ktrans
-        subname = 'ktrans'
-        config_dir = f'{config_dir_base}/{subname}/'  # local
-        confignamebase = 'augment-all-cnn3d8conv4mp3fcf4-1channel-batch64-adam-lre-0001-bcelogit-auc-nobfc'
-        seeds_pred_val, seeds_pred_test, target_val, target_test = get_prediction_each_modality_setouttest(config_dir,
-                                                                                                           testdemof,
-                                                                                                           confignamebase=confignamebase,
-                                                                                                           num_of_seeds=15)
-        fnamebase = f'/home/heejong/projects/biopsy-prediction/prostatex_submission/prostatex_submission_{subname}-earlystoppingAUC-15init'
-        seeds_pred_test_ktrans = get_submission_file(seeds_pred_test, fnamebase, testdemo, test_n_epochs)
-
-        del seeds_pred_val
-        del seeds_pred_test
-        del target_val
-        del target_test
-
-        ############ adcunregistered
-        subname = 'adc-unregistered'
-        config_dir = f'{config_dir_base}/{subname}/'  # local
-        confignamebase = 'augment-all-cnn3d8conv4mp3fcf4-1channel-batch64-adam-lre-0001-bcelogit-auc-nobfc'
-        seeds_pred_val, seeds_pred_test, target_val, target_test = get_prediction_each_modality_setouttest(config_dir,
-                                                                                                           testdemof,
-                                                                                                           confignamebase=confignamebase,
-                                                                                                           num_of_seeds=15)
-        fnamebase = f'/home/heejong/projects/biopsy-prediction/prostatex_submission/prostatex_submission_{subname}-earlystoppingAUC-15init'
-        seeds_pred_test_adc_unregistered = get_submission_file(seeds_pred_test, fnamebase, testdemo, test_n_epochs)
-
-        del seeds_pred_val
-        del seeds_pred_test
-        del target_val
-        del target_test
-
-        ############ dwib800 unregistered
-        subname = 'dwib800-unregistered'
-        config_dir = f'{config_dir_base}/{subname}/'  # local
-        confignamebase = 'augment-all-cnn3d8conv4mp3fcf4-1channel-batch64-adam-lre-0001-bcelogit-auc-nobfc'
-        seeds_pred_val, seeds_pred_test, target_val, target_test = get_prediction_each_modality_setouttest(config_dir,
-                                                                                                           testdemof,
-                                                                                                           confignamebase=confignamebase,
-                                                                                                           num_of_seeds=15)
-        fnamebase = f'/home/heejong/projects/biopsy-prediction/prostatex_submission/prostatex_submission_{subname}-earlystoppingAUC-15init'
-        seeds_pred_test_dwib800_unregistered = get_submission_file(seeds_pred_test, fnamebase, testdemo, test_n_epochs)
-
-        ############  1 channel multimodality ensemble (t2-adc-dwib800-unregistered)
-        subname = 't2-adc-dwib800-unregistered-earlystoppingAUC'
-        fnamebase = f'/home/heejong/projects/biopsy-prediction/prostatex_submission/prostatex_submission_{subname}'
-        seeds_pred_t2_adc_dwib800_unregistered = (seeds_pred_test_t2 + seeds_pred_test_adc_unregistered + seeds_pred_test_dwib800_unregistered) / 3
-        get_separate_submission_file(seeds_pred_t2_adc_dwib800_unregistered, fnamebase, testdemo)
-
-        ############  1 channel multimodality ensemble (t2-adc-ktrans-unregistered)
-        subname = 't2-adc-ktrans-unregistered-earlystoppingAUC'
-        fnamebase = f'/home/heejong/projects/biopsy-prediction/prostatex_submission/prostatex_submission_{subname}'
-        seeds_pred_t2_adc_ktrans_unregistered = (seeds_pred_test_t2 + seeds_pred_test_adc_unregistered + seeds_pred_test_ktrans) / 3
-        get_separate_submission_file(seeds_pred_t2_adc_ktrans_unregistered, fnamebase, testdemo)
-
-
-
-
-        ############ 3 channel input (t2-adc-dwib800)
-        # config_dir = './config-prostatex-local-8conv4mpfcf4-earlystopping-eval/t2-adc-dwib800/comparison-f7/'  # local
-        config_dir = './config-prostatex-local-8conv4mpfcf4-earlystopping-eval/t2-adc-dwib800-unregistered/comparison-f7/'  # local
-        confignamebase = 'augment-all-cnn3d8conv4mp3fcf7-batch64-adam-lre-0001-bcelogit-auc-nobfc'
-        seeds_pred_val_3c, seeds_pred_test_3c, target_val_3c, target_test_3c = get_prediction_each_modality_setouttest(
-            config_dir, testdemof,
-            confignamebase, 15)
-        subname = '3channel-t2-adc-dwib800-f7-unregistered-earlystoppingAUC'
-        fnamebase = f'/home/heejong/projects/biopsy-prediction/prostatex_submission/prostatex_submission_{subname}.csv'
-        get_submission_file(seeds_pred_test_3c, fnamebase, testdemo, test_n_epochs)
-
-        del seeds_pred_val_3c
-        del seeds_pred_test_3c
-        del target_val_3c
-        del target_test_3c
-
-        ############ 3 channel input (t2-adc-ktrans)
-        # config_dir = './config-prostatex-local-8conv4mpfcf4-earlystopping-eval/t2-adc-ktrans/comparison-f7/'  # local
-        config_dir = './config-prostatex-local-8conv4mpfcf4-earlystopping-eval/t2-adc-ktrans-unregistered/comparison-f7/'  # local
-        confignamebase = 'augment-all-cnn3d8conv4mp3fcf7-batch64-adam-lre-0001-bcelogit-auc-nobfc'
-        seeds_pred_val_3c, seeds_pred_test_3c, target_val_3c, target_test_3c = get_prediction_each_modality_setouttest(
-            config_dir, testdemof,
-            confignamebase, 15)
-        subname = '3channel-t2-adc-ktrans-f7-unregistered-earlystoppingAUC'
-        fnamebase = f'/home/heejong/projects/biopsy-prediction/prostatex_submission/prostatex_submission_{subname}.csv'
-        get_submission_file(seeds_pred_test_3c, fnamebase, testdemo, test_n_epochs)
-
-        del seeds_pred_val_3c
-        del seeds_pred_test_3c
-        del target_val_3c
-        del target_test_3c
 
 
 
