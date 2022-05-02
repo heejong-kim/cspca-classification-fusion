@@ -815,6 +815,7 @@ def main():
 
     dir_final_result = './test-results'
     dir_final_prediction = os.path.join(dir_final_result, 'prediction')
+    dir_final_prediction = os.path.join(dir_final_result, 'prediction-nondeterministic')
     if not os.path.exists(dir_final_prediction):
         os.makedirs(dir_final_prediction)
 
@@ -828,7 +829,7 @@ def main():
 
     list_modality = ['t2' , 'adc', 'ktrans', 'dwib800']
 
-    for mod in list_modality[1:]: # t2 is still running
+    for mod in list_modality:
         confignamebase = None
         config_dir = f'{config_dirbase}/{mod}/'
         # 15 init ensemble
@@ -859,7 +860,6 @@ def main():
     1.2. Early fusion: 3 channel inputs
     '''
     # 3 channel input [t2-adc-dwib800]
-    # TODO: After training is done run this on the server
     config_dir = f'{config_dirbase}/t2-adc-dwib800/'  # local
     confignamebase = 'augment-all-cnn3d8conv4mp3fcf7-batch64-adam-lre-0001-bcelogit-auc-nobfc'
 
@@ -888,6 +888,12 @@ def main():
     '''
     1.3 Late fusion: 1 channel input + multimodal ensemble
     '''
+    prediction_t2 = np.array(pd.read_csv(f'{dir_final_prediction}/8conv4mpfcf4-earlystopping-eval-t2.csv')['ClinSig-ensemble'])
+    prediction_adc = np.array(pd.read_csv(f'{dir_final_prediction}/8conv4mpfcf4-earlystopping-eval-adc.csv')['ClinSig-ensemble'])
+    prediction_dwib800 = np.array(pd.read_csv(f'{dir_final_prediction}/8conv4mpfcf4-earlystopping-eval-dwib800.csv')['ClinSig-ensemble'])
+    prediction_ktrans = np.array(pd.read_csv(f'{dir_final_prediction}/8conv4mpfcf4-earlystopping-eval-ktrans.csv')['ClinSig-ensemble'])
+    prediction_1c_t2_adc_dwib800 = (prediction_t2 + prediction_adc + prediction_dwib800)/3
+    prediction_1c_t2_adc_ktrans = (prediction_t2 + prediction_adc + prediction_ktrans)/3
 
 
 
@@ -908,69 +914,44 @@ def main():
         # rng = np.random.default_rng()
         n_trials = 10000
 
-        dir_prediction = '/home/heejong/projects/biopsy-prediction/prostatex_final_result/prediction/'
+        dir_prediction = dir_final_prediction
         model_basename = '8conv4mpfcf4-earlystopping-eval-'
-
-        chan1_t2_adc_dwib800, target = ensemble_different_modality(dir_prediction, model_basename,
+        chan1_t2_adc_dwib800, target = ensemble_different_modality(dir_prediction, '8conv4mpfcf4-earlystopping-eval-',
                                                                    ['t2', 'adc', 'dwib800'])
         print_all_results(target, chan1_t2_adc_dwib800, n_trials, rng)
         print_all_results(target, chan1_t2_adc_dwib800, n_trials, rng, 30)
 
-        chan1_t2_adc_ktrans, target = ensemble_different_modality(dir_prediction, model_basename,
+        chan1_t2_adc_ktrans, target = ensemble_different_modality(dir_prediction, '8conv4mpfcf4-earlystopping-eval-',
                                                                   ['t2', 'adc', 'ktrans'])
         print_all_results(target, chan1_t2_adc_ktrans, n_trials, rng)
         print_all_results(target, chan1_t2_adc_ktrans, n_trials, rng, 30)
 
-        chan1_t2_adc_ktrans_unregistered, target = ensemble_different_modality(dir_prediction, model_basename,
-                                                                  ['t2', 'adc-unregistered', 'ktrans'])
-        print_all_results(target, chan1_t2_adc_ktrans_unregistered, n_trials, rng)
-
-
-        chan1_t2_adc_dwib800_unregistered, target = ensemble_different_modality(dir_prediction, model_basename,
-                                                                  ['t2', 'adc-unregistered', 'dwib800-unregistered'])
-        print_all_results(target, chan1_t2_adc_dwib800_unregistered, n_trials, rng)
-
-        chan3_t2_adc_dwib800, target = ensemble_different_modality(dir_prediction, model_basename,
+        model_basename = '8conv4mpfcf7-earlystopping-eval-'
+        chan3_t2_adc_dwib800, target = ensemble_different_modality(dir_prediction, '8conv4mpfcf7-earlystopping-eval-',
                                                                    ['3channel-t2-adc-dwib800'])
         print_all_results(target, chan3_t2_adc_dwib800, n_trials, rng)
         print_all_results(target, chan3_t2_adc_dwib800, n_trials, rng, 30)
 
-        chan3_t2_adc_ktrans, target = ensemble_different_modality(dir_prediction, model_basename,
+        chan3_t2_adc_ktrans, target = ensemble_different_modality(dir_prediction, '8conv4mpfcf7-earlystopping-eval-',
                                                                   ['3channel-t2-adc-ktrans'])
         print_all_results(target, chan3_t2_adc_ktrans, n_trials, rng)
         print_all_results(target, chan3_t2_adc_ktrans, n_trials, rng, 30)
 
 
-        chan1_t2, target = ensemble_different_modality(dir_prediction, model_basename, ['t2-15init'])
+        chan1_t2, target = ensemble_different_modality(dir_prediction,  '8conv4mpfcf4-earlystopping-eval-',['t2-15init'])
         print_all_results(target, chan1_t2, n_trials, rng)
 
-        chan1_adc, target = ensemble_different_modality(dir_prediction, model_basename, ['adc-15init'])
+        chan1_adc, target = ensemble_different_modality(dir_prediction, '8conv4mpfcf4-earlystopping-eval-', ['adc-15init'])
         print_all_results(target, chan1_adc, n_trials, rng)
 
-        chan1_dwib800, target = ensemble_different_modality(dir_prediction, model_basename, ['dwib800-15init'])
+        chan1_dwib800, target = ensemble_different_modality(dir_prediction, '8conv4mpfcf4-earlystopping-eval-', ['dwib800-15init'])
         print_all_results(target, chan1_dwib800, n_trials, rng)
 
-        chan1_ktrans, target = ensemble_different_modality(dir_prediction, model_basename, ['ktrans-15init'])
+        chan1_ktrans, target = ensemble_different_modality(dir_prediction, '8conv4mpfcf4-earlystopping-eval-', ['ktrans-15init'])
         print_all_results(target, chan1_ktrans, n_trials, rng)
-
-        chan1_adc_unregistered, target = ensemble_different_modality(dir_prediction, model_basename, ['adc-unregistered-15init'])
-        print_all_results(target, chan1_adc_unregistered, n_trials, rng)
-
-        chan1_dwib800_unregistered, target = ensemble_different_modality(dir_prediction, model_basename, ['dwib800-unregistered-15init'])
-        print_all_results(target, chan1_dwib800_unregistered, n_trials, rng)
-
-        chan3_t2_adc_dwib800_unregistered, target = ensemble_different_modality(dir_prediction, model_basename,
-                                                                   ['3channel-t2-adc-dwib800-unregistered'])
-        print_all_results(target, chan3_t2_adc_dwib800_unregistered, n_trials, rng)
-
-
-        chan3_t2_adc_ktrans_unregistered, target = ensemble_different_modality(dir_prediction, model_basename,
-                                                                  ['3channel-t2-adc-ktrans-unregistered'])
-        print_all_results(target, chan3_t2_adc_ktrans_unregistered, n_trials, rng)
 
 
         ## AUC comparison pvalue DeLong
-
         from roccomparison.compare_auc_delong_xu import delong_roc_variance, delong_roc_test
         import sklearn.linear_model
         import scipy.stats
@@ -980,8 +961,6 @@ def main():
 
         pvalue_delong_roc_test(target, chan1_adc, chan3_t2_adc_dwib800)
         pvalue_delong_roc_test(target, chan1_adc, chan3_t2_adc_ktrans)
-        pvalue_delong_roc_test(target, chan3_t2_adc_ktrans_unregistered, chan3_t2_adc_ktrans)
-        pvalue_delong_roc_test(target, chan3_t2_adc_dwib800_unregistered, chan3_t2_adc_dwib800)
         pvalue_delong_roc_test(target, chan1_t2, chan3_t2_adc_dwib800)
         pvalue_delong_roc_test(target, chan1_t2, chan3_t2_adc_ktrans)
 
@@ -1003,29 +982,11 @@ def main():
     save_ensemble_saliency_dir = dir_final_saliency + '-1channel'
     config_dirbase = './config-prostatex-local-8conv4mpfcf4-earlystopping-eval' # local
     confignamebase = None
-    list_ensemble_saliency = ['t2', 'adc-unregistered', 'dwib800-unregistered']
-    ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase,num_of_seeds, testdemo,
-                                  save_ensemble_saliency_dir, saveslice=False, save_format='.png')
-    # ensemble_average_saliency_map_with_prediction(config_dirbase, list_ensemble_saliency, confignamebase,
-    #                                               num_of_seeds, testdemo,
-    #                                               chan1_t2_adc_dwib800, save_ensemble_saliency_dir,saveslice=False,
-    #                                               save_format='.png')
-
-    list_ensemble_saliency = ['t2', 'adc-unregistered', 'ktrans']
-    ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase,num_of_seeds, testdemo,
-                                  save_ensemble_saliency_dir)
 
     list_ensemble_saliency = ['t2']
     ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase,num_of_seeds, testdemo,
                                   save_ensemble_saliency_dir)
 
-    list_ensemble_saliency = ['adc-unregistered']
-    ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase,num_of_seeds, testdemo,
-                                  save_ensemble_saliency_dir)
-
-    list_ensemble_saliency = ['dwib800-unregistered']
-    ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase,num_of_seeds, testdemo,
-                                  save_ensemble_saliency_dir)
 
     list_ensemble_saliency = ['ktrans']
     ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase,num_of_seeds, testdemo,
@@ -1040,18 +1001,6 @@ def main():
                                   save_ensemble_saliency_dir)
 
     list_ensemble_saliency = ['t2-adc-ktrans']
-    save_ensemble_saliency_dir = dir_final_saliency + '-3channel'
-    confignamebase = 'comparison-f7/augment-all-cnn3d8conv4mp3fcf7-batch64-adam-lre-0001-bcelogit-auc-nobfc'
-    ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase, num_of_seeds, testdemo,
-                                  save_ensemble_saliency_dir)
-
-    list_ensemble_saliency = ['t2-adc-dwib800-unregistered']
-    save_ensemble_saliency_dir = dir_final_saliency + '-3channel'
-    confignamebase = 'comparison-f7/augment-all-cnn3d8conv4mp3fcf7-batch64-adam-lre-0001-bcelogit-auc-nobfc'
-    ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase, num_of_seeds, testdemo,
-                                  save_ensemble_saliency_dir)
-
-    list_ensemble_saliency = ['t2-adc-ktrans-unregistered']
     save_ensemble_saliency_dir = dir_final_saliency + '-3channel'
     confignamebase = 'comparison-f7/augment-all-cnn3d8conv4mp3fcf7-batch64-adam-lre-0001-bcelogit-auc-nobfc'
     ensemble_average_saliency_map(config_dirbase, list_ensemble_saliency, confignamebase, num_of_seeds, testdemo,
@@ -1381,79 +1330,12 @@ def main():
         arr[2, 3].title.set_text(f'T2-ADC-Ktrans 3 chan\n Pred:{prediction_3c_t2_adc_ktrans[si]:.2f}/Label:{prediction_3c_t2_adc_ktrans[si]>thr_3c_t2_adc_ktrans:.1f}')
         arr[2, 0].axis('off'); arr[2, 1].axis('off'); arr[2, 2].axis('off'); arr[2, 3].axis('off');
 
-        # tumor overlay
-        if False:
-        # if segfnames[si] != 'nan':
-            import torchio as tio
-            from oscarpreprocessing.preprocessing_lib import get_lesion_mask_id_seed
-            import SimpleITK as sitk
-            # get t2 size
-            # get segimage size # t2 = 0.5mm
-            segsize = nib.load(segfnames[si]).header.get_zooms()
-            t2size = (0.5, 0.5, 0.5)
-            transform = tio.Resample((1, 1, t2size[2]/segsize[2]))
-            t2_shape = t2.shape
-            dir_segt2 = '/home/heejong/data/prostatex/PROSTATEx_masks-master/Files/lesions/Images/T2'
-            t2itk = sitk.ReadImage(glob.glob(os.path.join(dir_segt2, segdemo.ProxID.iloc[si] + '*'))[0])
-            t2reshaped = sitk.GetArrayFromImage(t2itk).transpose(2, 1, 0)[::-1, ::-1]
-            t2resampled = transform((t2reshaped[None, :]).copy())[0]
-            segitk = sitk.ReadImage(segfnames[si])
-            positions = np.array(testdemo['pos'].iloc[si].split()).astype('float')
-            positions_img = np.array([segitk.TransformPhysicalPointToContinuousIndex(positions.astype(np.float64))])
-            lesion_mask_id_seed_update = get_lesion_mask_id_seed(positions_img, segitk)
-            positionI = sitk.GetArrayFromImage(lesion_mask_id_seed_update).transpose(2, 1, 0)[::-1, ::-1]
-            positionresampled = transform((positionI * 10)[None, :].copy())[0]
-            segitk_reshaped = sitk.GetArrayFromImage(segitk).transpose(2, 1, 0)[::-1, ::-1]
-            segitkresampled = transform((segitk_reshaped)[None, :].copy())[0]
-            seg_middle = np.median(np.array(np.where(positionresampled)), 1).astype('int')
-            positionresampled_patch = getBoundingBox(positionresampled, seg_middle, t2_shape[0], t2_shape[1], t2_shape[2])
-            seg_middle_patch = np.median(np.array(np.where(positionresampled_patch)), 1).astype('int')
-
-            # lesion_middle_point_orig =
-            arr[3, 0].title.set_text('T2-lesion:  \n'
-                                     'Cuocolo selected T2 & manual segmentation')
-            arr[3, 0].imshow(getBoundingBox(t2resampled, seg_middle, t2_shape[0], t2_shape[1], t2_shape[2])[:, :,
-                          seg_middle_patch[-1]].transpose(), cmap=plt.get_cmap('gist_gray'))
-
-            arr[3, 0].imshow(getBoundingBox(segitkresampled, seg_middle, t2_shape[0], t2_shape[1], t2_shape[2])[:, :,
-                          seg_middle_patch[-1]].transpose(), cmap=plt.get_cmap('Reds'), alpha=0.5)
-
-        arr[3, 0].axis('off'); arr[3, 1].axis('off'); arr[3, 2].axis('off'); arr[3, 3].axis('off');
-
         # plt.colorbar(im, ax=arr[1, 2])
         fig.suptitle(f'{names[si]}: / True Label {target[si]}')
         savefigname = os.path.join(dir_figure_slice, f'label{target[si]:.0f}_{names[si]}')
         fig.savefig(savefigname)
         plt.close(fig)
         plt.clf()
-
-    from oscarpreprocessing.preprocessing_lib import get_lesion_mask_id_seed
-    dir_segt2 ='/home/heejong/data/prostatex/PROSTATEx_masks-master/Files/lesions/Images/T2'
-    t2itk = sitk.ReadImage(glob.glob(os.path.join(dir_segt2, segdemo.ProxID.iloc[si] + '*'))[0])
-    t2reshaped = sitk.GetArrayFromImage(t2itk).transpose(2, 1, 0)[ ::-1, ::-1]
-    t2resampled = transform((t2reshaped[None, :]).copy())[0]
-
-    segitk = sitk.ReadImage(segfnames[si])
-    positions = np.array(testdemo['pos'].iloc[si].split()).astype('float')
-    positions_img = np.array([segitk.TransformPhysicalPointToContinuousIndex(positions.astype(np.float64))])
-    lesion_mask_id_seed_update = get_lesion_mask_id_seed(positions_img, segitk)
-    positionI = sitk.GetArrayFromImage(lesion_mask_id_seed_update).transpose(2, 1, 0)[::-1, ::-1]
-    positionresampled = transform((positionI*10)[None, :].copy())[0]
-    segitk_reshaped = sitk.GetArrayFromImage(segitk).transpose(2, 1, 0)[ ::-1, ::-1]
-    segitkresampled = transform((segitk_reshaped)[None, :].copy())[0]
-
-    seg_middle = np.median(np.array(np.where(positionresampled)),1).astype('int')
-    # seg_middle = np.median(np.array(np.where(segitkresampled)), 1).astype('int')
-
-    fig, arr = plt.subplots(1, 3, figsize=(12, 4))  # , figsize=(50,100))
-    arr[0].imshow(getBoundingBox(t2resampled, seg_middle, t2_shape[0], t2_shape[1], t2_shape[2])[:, :, seg_middle[-1]].transpose(), cmap=plt.get_cmap('gist_gray'))
-    arr[1].imshow(getBoundingBox(segitkresampled, seg_middle, t2_shape[0], t2_shape[1], t2_shape[2])[:, :, seg_middle[-1]].transpose(), cmap=plt.get_cmap('gist_gray'))
-    arr[2].imshow(getBoundingBox(positionresampled, seg_middle, t2_shape[0], t2_shape[1], t2_shape[2])[:, :, seg_middle[-1]].transpose(), cmap=plt.get_cmap('gist_gray'))
-    arr[0].axis('off');arr[1].axis('off');arr[2].axis('off');
-    fig.savefig('./tmp2.png')
-
-
-
 
 
 
