@@ -1,5 +1,5 @@
 # Clinically significant Prostate Cancer Classification using Fusion
-Reference Implementation of paper "Paper Title" of Heejong Kim, Mert Sabuncu, Himanshu Nagar*, Daniel Margolis* (* Corresponding author) 
+Reference Implementation of paper "Clinically Significant Prostate Cancer Detection using Multiparametric MRI: A Simple and Interpretable Deep Learning Method" of Heejong Kim, Himanshu Nagar, Daniel Margolis*, Mert Sabuncu* (*Senior author) 
 
 [comment]: <> (, to appear in "Journal".)
 [comment]: <> ([Project Page]&#40;https://heejongkim.com/dwi-synthesis&#41; | [Paper]&#40;https://arxiv.org/abs/2106.13188&#41; )
