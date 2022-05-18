@@ -11,3 +11,8 @@
 /sbatch-ktrans-rest.sh
 /sbatch-reproducibility.sh
 /sbatch-t21c.sh
+/prostatex_submission/
+/test-results/
+/config-server/
+/checkpoint-server/
+/checkpoint/

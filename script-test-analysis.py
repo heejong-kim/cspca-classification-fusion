@@ -950,21 +950,6 @@ def main():
         chan1_ktrans, target = ensemble_different_modality(dir_prediction, '8conv4mpfcf4-earlystopping-eval-', ['ktrans-15init'])
         print_all_results(target, chan1_ktrans, n_trials, rng)
 
-
-        ## AUC comparison pvalue DeLong
-        from roccomparison.compare_auc_delong_xu import delong_roc_variance, delong_roc_test
-        import sklearn.linear_model
-        import scipy.stats
-
-        def pvalue_delong_roc_test(target, pred1, pred2):
-            return 10**(delong_roc_test(target, pred1, pred2))
-
-        pvalue_delong_roc_test(target, chan1_adc, chan3_t2_adc_dwib800)
-        pvalue_delong_roc_test(target, chan1_adc, chan3_t2_adc_ktrans)
-        pvalue_delong_roc_test(target, chan1_t2, chan3_t2_adc_dwib800)
-        pvalue_delong_roc_test(target, chan1_t2, chan3_t2_adc_ktrans)
-
-
     '''
     3. Saliency map
     '''
@@ -1055,41 +1040,7 @@ def main():
 
 
     '''
-    4.2 Early Fusion
-    '''
-    # TODO: run DWIb800 when it is done (on server)
-    ############ 3 channel input (t2-adc-dwib800)
-    config_dir = f'{config_dirbase}/t2-adc-dwib800/'  # local
-    confignamebase = 'augment-all-cnn3d8conv4mp3fcf7-batch64-adam-lre-0001-bcelogit-auc-nobfc'
-    seeds_pred_val_3c, seeds_pred_test_3c, target_val_3c, target_test_3c = get_prediction_each_modality_setouttest(
-        config_dir, challenge_testdemof,
-        confignamebase, 15)
-    subname = '3channel-t2-adc-dwib800-f7-earlystoppingAUC'
-    fnamebase = f'{dir_submission}/prostatex_submission_{subname}'
-    _ = get_submission_file(seeds_pred_test_3c, fnamebase, challenge_testdemo, test_n_epochs)
-
-    del seeds_pred_val_3c
-    del seeds_pred_test_3c
-    del target_val_3c
-    del target_test_3c
-
-    ############ 3 channel input (t2-adc-ktrans)
-    config_dir = f'{config_dirbase}/t2-adc-ktrans/'  # local
-    confignamebase = 'augment-all-cnn3d8conv4mp3fcf7-batch64-adam-lre-0001-bcelogit-auc-nobfc'
-    seeds_pred_val_3c, seeds_pred_test_3c, target_val_3c, target_test_3c = get_prediction_each_modality_setouttest(
-        config_dir, challenge_testdemof,
-        confignamebase, 15)
-    subname = '3channel-t2-adc-ktrans-f7-earlystoppingAUC'
-    fnamebase = f'{dir_submission}/prostatex_submission_{subname}'
-    _ = get_submission_file(seeds_pred_test_3c, fnamebase, challenge_testdemo, test_n_epochs)
-
-    del seeds_pred_val_3c
-    del seeds_pred_test_3c
-    del target_val_3c
-    del target_test_3c
-
-    '''
-    4.3 Late Fusion
+    4.2 Fusion
     '''
 
     seeds_pred_test_t2 = np.array(pd.read_csv(f'{dir_submission}/prostatex_submission_t2-earlystoppingAUC-5init.csv')['ClinSig'])
@@ -1405,7 +1356,6 @@ def main():
 
         # Show graphic
         plt.show()
-
 
 
 
