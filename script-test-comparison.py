@@ -4,10 +4,8 @@ import scipy.stats
 from sklearn.metrics import roc_auc_score, f1_score, roc_curve, confusion_matrix, accuracy_score
 import sklearn.linear_model
 import numpy
+from scipy.stats import bootstrap
 from roc_comparison import compare_auc_delong_xu
-import scipy.stats
-
-
 
 
 def accuracy_with_threshold(target, prediction):
@@ -83,25 +81,92 @@ def print_all_results(target, prediction, n_trials, rng, bootstrap_subsample=Non
 
     return accthr
 
+def get_specificity(target, pred):
+    tn, fp, fn, tp = confusion_matrix(target, pred).ravel()
+    sensitivity = tp / (tp + fn)  # overall positives
+    specificity = tn / (tn + fp)  # overall negatives
+    return specificity
 
-target = np.array(pd.read_csv('/home/heejong/projects/biopsy-prediction/prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-t2-15init.csv')['ClinSig-target'])
-prediction_t2 = np.array(pd.read_csv('/home/heejong/projects/biopsy-prediction/prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-t2-15init.csv')['ClinSig-ensemble'])
-prediction_adc = np.array(pd.read_csv('/home/heejong/projects/biopsy-prediction/prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-adc-15init.csv')['ClinSig-ensemble'])
-prediction_dwib800 = np.array(pd.read_csv('/home/heejong/projects/biopsy-prediction/prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-dwib800-15init.csv')['ClinSig-ensemble'])
-prediction_ktrans = np.array(pd.read_csv('/home/heejong/projects/biopsy-prediction/prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-ktrans-15init.csv')['ClinSig-ensemble'])
+def get_sensitivity(target, pred):
+    tn, fp, fn, tp = confusion_matrix(target, pred).ravel()
+    sensitivity = tp / (tp + fn)  # overall positives
+    specificity = tn / (tn + fp)  # overall negatives
+    return sensitivity
+
+def get_accuracy(target, pred):
+    return accuracy_score(target, pred)
+
+
+target = np.array(pd.read_csv('./_prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-t2-15init.csv')['ClinSig-target'])
+prediction_t2 = np.array(pd.read_csv('./_prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-t2-15init.csv')['ClinSig-ensemble'])
+prediction_adc = np.array(pd.read_csv('./_prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-adc-15init.csv')['ClinSig-ensemble'])
+prediction_dwib800 = np.array(pd.read_csv('./_prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-dwib800-15init.csv')['ClinSig-ensemble'])
+prediction_ktrans = np.array(pd.read_csv('./_prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-ktrans-15init.csv')['ClinSig-ensemble'])
 prediction_1c_t2_adc_dwib800 = (prediction_t2 + prediction_adc + prediction_dwib800)/3
 prediction_1c_t2_adc_ktrans = (prediction_t2 + prediction_adc + prediction_ktrans)/3
-prediction_3c_t2_adc_dwib800 = np.array(pd.read_csv('/home/heejong/projects/biopsy-prediction/prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-3channel-t2-adc-dwib800.csv')['ClinSig-ensemble'])
-prediction_3c_t2_adc_ktrans = np.array(pd.read_csv('/home/heejong/projects/biopsy-prediction/prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-3channel-t2-adc-ktrans.csv')['ClinSig-ensemble'])
-dir_figure_slice = '/home/heejong/projects/biopsy-prediction/prostatex_final_result/slice-visualization/summary'
+prediction_3c_t2_adc_dwib800 = np.array(pd.read_csv('./_prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-3channel-t2-adc-dwib800.csv')['ClinSig-ensemble'])
+prediction_3c_t2_adc_ktrans = np.array(pd.read_csv('./_prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-3channel-t2-adc-ktrans.csv')['ClinSig-ensemble'])
 
-t2_5 =  np.array(pd.read_csv('/home/heejong/projects/biopsy-prediction/prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-t2.csv')['ClinSig-ensemble'])
-adc_5 =  np.array(pd.read_csv('/home/heejong/projects/biopsy-prediction/prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-adc.csv')['ClinSig-ensemble'])
-ktrans_5 = np.array(pd.read_csv('/home/heejong/projects/biopsy-prediction/prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-ktrans.csv')['ClinSig-ensemble'])
-dwi_5 = np.array(pd.read_csv('/home/heejong/projects/biopsy-prediction/prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-dwib800.csv')['ClinSig-ensemble'])
+
+t2_5 =  np.array(pd.read_csv('./_prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-t2.csv')['ClinSig-ensemble'])
+adc_5 =  np.array(pd.read_csv('./_prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-adc.csv')['ClinSig-ensemble'])
+ktrans_5 = np.array(pd.read_csv('./_prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-ktrans.csv')['ClinSig-ensemble'])
+dwi_5 = np.array(pd.read_csv('./_prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-dwib800.csv')['ClinSig-ensemble'])
 
 prediction_1c_t2_adc_dwib800 = (t2_5 + adc_5 + dwi_5)/3
 prediction_1c_t2_adc_ktrans = (t2_5 + adc_5 + ktrans_5)/3
+
+### TODO: additional combinations
+def get_n_init_avg(result, n_init):
+    prediction = np.zeros(len(result))
+    for n in range(n_init):
+        prediction += result[f'CilnSig-seed{n}']
+    return prediction / n_init
+
+t2result = pd.read_csv('./_prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-t2-15init.csv')
+adcresult = result = pd.read_csv('./_prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-adc-15init.csv')
+dwiresult = result = pd.read_csv('./_prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-dwib800-15init.csv')
+ktransresult = result = pd.read_csv('./_prostatex_final_result/prediction/8conv4mpfcf4-earlystopping-eval-ktrans-15init.csv')
+rng_seed = 42  # control reproducibility
+rng = np.random.RandomState(rng_seed)
+# rng = np.random.default_rng()
+n_trials = 10000
+print('T2-ADC:')
+print_all_results(target, (get_n_init_avg(t2result, 8)+get_n_init_avg(adcresult, 8))/2, n_trials, rng)
+print('T2-DWI:')
+print_all_results(target, (get_n_init_avg(t2result, 8)+get_n_init_avg(dwiresult, 8))/2, n_trials, rng)
+print('T2-ktrans:')
+print_all_results(target, (get_n_init_avg(t2result, 8)+get_n_init_avg(ktransresult, 8))/2, n_trials, rng)
+print('ADC-DWI:')
+print_all_results(target, (get_n_init_avg(adcresult, 8)+get_n_init_avg(dwiresult, 8))/2, n_trials, rng)
+print('ADC-ktrans:')
+print_all_results(target, (get_n_init_avg(adcresult, 8)+get_n_init_avg(ktransresult, 8))/2, n_trials, rng)
+print('ktrans-DWI:')
+print_all_results(target, (get_n_init_avg(ktransresult, 8)+get_n_init_avg(dwiresult, 8))/2, n_trials, rng)
+
+print('T2-ADC-DWI:')
+print_all_results(target,
+                  (get_n_init_avg(t2result, 5)+get_n_init_avg(adcresult, 5)+get_n_init_avg(dwiresult, 5))/3,
+                  n_trials, rng)
+print('ADC-DWI-ktrans:')
+print_all_results(target,
+                  (get_n_init_avg(adcresult, 5)+get_n_init_avg(dwiresult, 5)+get_n_init_avg(ktransresult, 5))/3,
+                  n_trials, rng)
+print('T2-ktrans-DWI:')
+print_all_results(target,
+                  (get_n_init_avg(t2result, 5)+get_n_init_avg(ktransresult, 5)+get_n_init_avg(dwiresult, 5))/3,
+                  n_trials, rng)
+print('T2-ADC-ktrans:')
+print_all_results(target,
+                  (get_n_init_avg(t2result, 5)+get_n_init_avg(adcresult, 5)+get_n_init_avg(ktransresult, 5))/3,
+                  n_trials, rng)
+
+print('T2-ADC-DWI-ktrans:')
+print_all_results(target,
+                  (get_n_init_avg(t2result, 4)+get_n_init_avg(adcresult, 4)+\
+                   get_n_init_avg(ktransresult, 4)+get_n_init_avg(dwiresult, 4))/4,
+                  n_trials, rng)
+
 
 print('t2', get_auc(target, prediction_t2))
 print('adc', get_auc(target, prediction_adc))
