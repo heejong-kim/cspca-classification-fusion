@@ -37,5 +37,11 @@ Please note that challenge submission is not available as of Apr 30th. ([Challen
 ## Citation
 If you use this code, please consider citing our work:
 ```
-Paper info will be added
+@article{kim2022pulse,
+  title={Pulse Sequence Dependence of a Simple and Interpretable Deep Learning Method for Detection of Clinically Significant Prostate Cancer Using Multiparametric MRI},
+  author={Kim, Heejong and Margolis, Daniel JA and Nagar, Himanshu and Sabuncu, Mert R},
+  journal={Academic Radiology},
+  year={2022},
+  publisher={Elsevier}
+}
 ```
